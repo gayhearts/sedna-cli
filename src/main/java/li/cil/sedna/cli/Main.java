@@ -126,7 +126,8 @@ public final class Main {
                 }
 
                 final long stepDuration = System.currentTimeMillis() - stepStart;
-                final long sleep = 1000 - stepDuration;
+				// minimum ~1/60th second per loop
+                final long sleep = 17 - stepDuration;
                 if (sleep > 0) {
                     //noinspection BusyWait
                     Thread.sleep(sleep);

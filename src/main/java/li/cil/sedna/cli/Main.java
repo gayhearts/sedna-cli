@@ -21,6 +21,9 @@ import org.jline.terminal.TerminalBuilder;
 import org.jline.terminal.impl.DumbTerminal;
 import org.jline.utils.NonBlockingReader;
 
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
+
 import java.io.*;
 import java.util.Arrays;
 import java.util.List;
@@ -46,6 +49,17 @@ public final class Main {
         final PhysicalMemory memory = Memory.create(32 * 1024 * 1024);
         final UART16550A uart = new UART16550A();
         final GoldfishRTC rtc = new GoldfishRTC(SystemTimeRealTimeCounter.get());
+
+		// terminal signals
+		SignalHandler handler = new SignalHandler () {
+			// ^C
+   			public void handle(Signal sig) {
+			 uart.putByte((byte) 0x03);
+		    }
+		};
+		
+		Signal.handle(new Signal("INT"), handler);
+
 
         final Images images = getImages();
 

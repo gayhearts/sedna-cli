@@ -12,6 +12,9 @@ tmp/
 .project
 local.properties
 
+# testing
+sedna-c*
+
 # idea
 out/
 *.ipr

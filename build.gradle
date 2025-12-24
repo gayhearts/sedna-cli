@@ -2,6 +2,11 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'application'
+
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id "com.matthewprenger.cursegradle" version "1.4.0"
+    id 'org.spongepowered.mixin' version '0.7.+'
+    id "com.modrinth.minotaur" version "2.+"
 }
 
 def getGitRef() {
@@ -30,11 +35,12 @@ group = 'li.cil.sedna'
 
 java.toolchain {
     languageVersion = JavaLanguageVersion.of(17)
-    vendor = JvmVendorSpec.ADOPTOPENJDK
+    //vendor = JvmVendorSpec.ADOPTOPENJDK
 }
 
 repositories {
-    mavenCentral()
+	maven { url "https://www.cursemaven.com" }
+	mavenCentral()
     ["North-Western-Development/sedna", "North-Western-Development/minux", "fnuecke/ceres"].forEach(repo -> {
         maven {
             url = uri("https://maven.pkg.github.com/${repo}")
@@ -51,6 +57,8 @@ def tryProject(final projectName, final libraryName) {
 }
 
 dependencies {
+	minecraft "net.minecraftforge:forge:1.20.1-47.4.10"
+	implementation 'com.google.guava:guava:16+'
     implementation 'commons-io:commons-io:2.11.0'
     implementation 'it.unimi.dsi:fastutil:8.5.8'
     implementation 'org.apache.commons:commons-lang3:3.12.0'
@@ -66,6 +74,7 @@ dependencies {
     implementation tryProject(':modules:ceres', 'li.cil.ceres:ceres:0.0.4')
     implementation tryProject(':modules:sedna', 'li.cil.sedna:sedna:2.0.13')
     implementation tryProject(':modules:sedna-buildroot', 'li.cil.sedna:sedna-buildroot:0.0.64')
+	implementation tryProject(':modules:oc2r', 'curse.maven:oc2r-1037738:6280699')
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
@@ -96,3 +105,26 @@ run {
 test {
     useJUnitPlatform()
 }
+
+
+minecraft {
+    mappings channel: "official", version: "1.20.1"
+
+    accessTransformer = file("src/main/resources/META-INF/accesstransformer.cfg")
+
+    runs {
+        configureEach {
+            property "forge.logging.markers", "REGISTRIES"
+            property "forge.logging.console.level", "debug"
+
+            mods {
+                oc2 {
+                    source sourceSets.main
+                }
+            }
+        }
+
+    }
+}
+
+

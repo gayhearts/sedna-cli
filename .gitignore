@@ -13,7 +13,8 @@ tmp/
 local.properties
 
 # testing
-sedna-c*
+vm_distributions
+minux.img
 
 # idea
 out/

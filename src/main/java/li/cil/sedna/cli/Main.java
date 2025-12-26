@@ -81,6 +81,12 @@ public final class Main {
 		// builtin device initialization. adds rootfs
 		builtinDevices = new BuiltinDevices(context);
 
+		// add a third device (vdc), from an image file.
+		final BlockDevice vdc_fs = ByteBufferBlockDevice.createFromFile(GetImageFile(), false);
+		final VirtIOBlockDevice vdc = new VirtIOBlockDevice(board.getMemoryMap(), vdc_fs);
+		vdc.getInterrupt().set(0x3, board.getInterruptController());
+		board.addDevice(vdc);
+
 		// device adapters
 		final RPCDeviceBusAdapter rpcAdapter = new RPCDeviceBusAdapter(builtinDevices.rpcSerialDevice);
 		final VMDeviceBusAdapter vmAdapter;
@@ -184,6 +190,11 @@ public final class Main {
 		for (int address = offset, value = bis.read(); value != -1; value = bis.read(), address++) {
 			memory.store(address, (byte) value, Sizes.SIZE_8_LOG2);
 		}
+	}
+
+	// Currently hard-coded. minux.img at project root.
+	private static File GetImageFile() throws IOException {
+		return new File("../../minux.img");
 	}
 
 	private static Images getImages() throws IOException {

@@ -45,38 +45,38 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class Main {
-    public static void main(final String[] args) throws Exception {
-        Sedna.initialize();
+	public static void main(final String[] args) throws Exception {
+		Sedna.initialize();
 
-        final List<String> argList = Arrays.asList(args);
-        final boolean enableGdbStub = argList.contains("-s");
-        final boolean waitForGdb = argList.contains("-S");
+		final List<String> argList = Arrays.asList(args);
+		final boolean enableGdbStub = argList.contains("-s");
+		final boolean waitForGdb = argList.contains("-S");
 
-        runSimple(enableGdbStub, waitForGdb);
-    }
+		runSimple(enableGdbStub, waitForGdb);
+	}
 
-    private static void runSimple(final boolean enableGdbStub, final boolean waitForGdb) throws Exception {
-        final R5Board board = new R5Board();
-        final PhysicalMemory memory = Memory.create(32 * 1024 * 1024);
-        final GoldfishRTC rtc = new GoldfishRTC(SystemTimeRealTimeCounter.get());
+	private static void runSimple(final boolean enableGdbStub, final boolean waitForGdb) throws Exception {
+		final R5Board board = new R5Board();
+		final PhysicalMemory memory = Memory.create(32 * 1024 * 1024);
+		final GoldfishRTC rtc = new GoldfishRTC(SystemTimeRealTimeCounter.get());
 
 		final GlobalVMContext context = new GlobalVMContext(board);
 		final BuiltinDevices builtinDevices;
 
-        // grab minux images
-        final Images images = getImages();
+		// grab minux images
+		final Images images = getImages();
 
-        // mount bootfs for first block device (vda)
-        //   can we add this to context?
-        final BlockDevice bootfs = ByteBufferBlockDevice.createFromStream(images.bootfs(), true);
-        final VirtIOBlockDevice vda = new VirtIOBlockDevice(board.getMemoryMap(), bootfs);
-        vda.getInterrupt().set(0x1, board.getInterruptController());
+		// mount bootfs for first block device (vda)
+		//   can we add this to context?
+		final BlockDevice bootfs = ByteBufferBlockDevice.createFromStream(images.bootfs(), true);
+		final VirtIOBlockDevice vda = new VirtIOBlockDevice(board.getMemoryMap(), bootfs);
+		vda.getInterrupt().set(0x1, board.getInterruptController());
 		board.addDevice(vda);
 
-        // builtin device initialization. adds rootfs
-        builtinDevices = new BuiltinDevices(context);
+		// builtin device initialization. adds rootfs
+		builtinDevices = new BuiltinDevices(context);
 
-        // device adapters
+		// device adapters
 		final RPCDeviceBusAdapter rpcAdapter = new RPCDeviceBusAdapter(builtinDevices.rpcSerialDevice);
 		final VMDeviceBusAdapter vmAdapter;
 		vmAdapter = new VMDeviceBusAdapter(context);
@@ -84,105 +84,106 @@ public final class Main {
 		// terminal signals
 		SignalHandler handler = new SignalHandler () {
 			// ^C
-   			public void handle(Signal sig) {
-			 builtinDevices.uart.putByte((byte) 0x03);
-		    }
+			public void handle(Signal sig) {
+				builtinDevices.uart.putByte((byte) 0x03);
+			}
 		};
-		
+
 		Signal.handle(new Signal("INT"), handler);
 
 
-        builtinDevices.uart.getInterrupt().set(0xA, board.getInterruptController());
-        rtc.getInterrupt().set(0xB, board.getInterruptController());
+		builtinDevices.uart.getInterrupt().set(0xA, board.getInterruptController());
+		rtc.getInterrupt().set(0xB, board.getInterruptController());
 
 
-        board.addDevice(0x80000000L, memory);
-        board.addDevice(builtinDevices.uart);
-        board.addDevice(rtc);
+		board.addDevice(0x80000000L, memory);
+		board.addDevice(builtinDevices.uart);
+		board.addDevice(rtc);
 
 		board.getCpu().setFrequency(25_000_000);
-        board.setBootArguments("root=/dev/vda rw");
-        board.setStandardOutputDevice(builtinDevices.uart);
+		board.setBootArguments("root=/dev/vda rw");
+		board.setStandardOutputDevice(builtinDevices.uart);
 
-        board.reset();
+		board.reset();
 
-        // Add device firmware.
-        loadProgramFile(memory, images.firmware());
-        loadProgramFile(memory, images.kernel(), 0x200000);
+		// Add device firmware.
+		loadProgramFile(memory, images.firmware());
+		loadProgramFile(memory, images.kernel(), 0x200000);
 
-        board.initialize();
+		board.initialize();
 
-        // Mount adapter devices.
-        vmAdapter.mountDevices();
-        rpcAdapter.mountDevices();
+		// Mount adapter devices.
+		vmAdapter.mountDevices();
+		rpcAdapter.mountDevices();
 
-        board.setRunning(true);
+		board.setRunning(true);
 
-        if (enableGdbStub) {
-            board.enableGDB(55554, waitForGdb);
-        }
+		if (enableGdbStub) {
+			board.enableGDB(55554, waitForGdb);
+		}
 
-        final int cyclesPerSecond = board.getCpu().getFrequency();
-        final int cyclesPerStep = 1_000;
+		final int cyclesPerSecond = board.getCpu().getFrequency();
+		final int cyclesPerStep = 1_000;
 
-        try (final InputStreamReader isr = new InputStreamReader(System.in)) {
-            final BufferedReader br = new BufferedReader(isr);
+		try (final InputStreamReader isr = new InputStreamReader(System.in)) {
+			final BufferedReader br = new BufferedReader(isr);
 
-            int remaining = 0;
-            while (board.isRunning()) {
-                final long stepStart = System.currentTimeMillis();
+			int remaining = 0;
+			while (board.isRunning()) {
+				final long stepStart = System.currentTimeMillis();
 
-                remaining += cyclesPerSecond;
-                while (remaining > 0) {
-                    board.step(cyclesPerStep);
-                    rpcAdapter.step(cyclesPerStep);
-                    remaining -= cyclesPerStep;
+				remaining += cyclesPerSecond;
+				while (remaining > 0) {
+					board.step(cyclesPerStep);
+					rpcAdapter.step(cyclesPerStep);
+					remaining -= cyclesPerStep;
 
-                    int value;
-                    while ((value = builtinDevices.uart.read()) != -1) {
-                        System.out.print((char) value);
-                    }
+					int value;
+					while ((value = builtinDevices.uart.read()) != -1) {
+						System.out.print((char) value);
+					}
 
-                    while (br.ready() && builtinDevices.uart.canPutByte()) {
-                        builtinDevices.uart.putByte((byte) br.read());
-                    }
-                }
+					while (br.ready() && builtinDevices.uart.canPutByte()) {
+						builtinDevices.uart.putByte((byte) br.read());
+					}
+				}
 
-                if (board.isRestarting()) {
-                    loadProgramFile(memory, images.firmware());
-                    loadProgramFile(memory, images.kernel(), 0x200000);
+				if (board.isRestarting()) {
+					loadProgramFile(memory, images.firmware());
+					loadProgramFile(memory, images.kernel(), 0x200000);
 
-                    board.initialize();
-                }
+					board.initialize();
+				}
 
-                final long stepDuration = System.currentTimeMillis() - stepStart;
+				final long stepDuration = System.currentTimeMillis() - stepStart;
 				// minimum ~1/60th second per loop
-                final long sleep = 17 - stepDuration;
-                if (sleep > 0) {
-                    //noinspection BusyWait
-                    Thread.sleep(sleep);
-                }
-            }
-        }
-    }
+				final long sleep = 17 - stepDuration;
+				if (sleep > 0) {
+					//noinspection BusyWait
+					Thread.sleep(sleep);
+				}
+			}
+		}
+	}
 
-    private static void loadProgramFile(final PhysicalMemory memory, final InputStream stream) throws Exception {
-        loadProgramFile(memory, stream, 0);
-    }
+	private static void loadProgramFile(final PhysicalMemory memory, final InputStream stream) throws Exception {
+		loadProgramFile(memory, stream, 0);
+	}
 
-    private static void loadProgramFile(final PhysicalMemory memory, final InputStream stream, final int offset) throws IOException {
-        final BufferedInputStream bis = new BufferedInputStream(stream);
-        for (int address = offset, value = bis.read(); value != -1; value = bis.read(), address++) {
-            memory.store(address, (byte) value, Sizes.SIZE_8_LOG2);
-        }
-    }
+	private static void loadProgramFile(final PhysicalMemory memory, final InputStream stream, final int offset) throws IOException {
+		final BufferedInputStream bis = new BufferedInputStream(stream);
+		for (int address = offset, value = bis.read(); value != -1; value = bis.read(), address++) {
+			memory.store(address, (byte) value, Sizes.SIZE_8_LOG2);
+		}
+	}
 
-    private static Images getImages() throws IOException {
-        return new Images(
-                Buildroot.getFirmware(),
-                Buildroot.getLinuxImage(),
-                Buildroot.getBootFilesystem(),
-                Buildroot.getRootFilesystem());
-    }
+	private static Images getImages() throws IOException {
+		return new Images(
+				Buildroot.getFirmware(),
+				Buildroot.getLinuxImage(),
+				Buildroot.getBootFilesystem(),
+				Buildroot.getRootFilesystem());
+	}
 
-    private record Images(InputStream firmware, InputStream kernel, InputStream bootfs, InputStream rootfs) { } }
+	private record Images(InputStream firmware, InputStream kernel, InputStream bootfs, InputStream rootfs) { }
+}

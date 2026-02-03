@@ -11,6 +11,7 @@ import li.cil.sedna.device.rtc.GoldfishRTC;
 import li.cil.sedna.device.rtc.SystemTimeRealTimeCounter;
 import li.cil.sedna.device.serial.UART16550A;
 import li.cil.sedna.device.virtio.VirtIOBlockDevice;
+import li.cil.sedna.device.virtio.VirtIOConsoleDevice;
 import li.cil.sedna.device.virtio.VirtIOFileSystemDevice;
 import li.cil.sedna.fs.HostFileSystem;
 import li.cil.sedna.riscv.R5Board;
@@ -64,56 +65,61 @@ public final class Main {
 		final R5Board board = new R5Board();
 		final PhysicalMemory memory = Memory.create(VM_MEMORY_BYTES);
 		final GoldfishRTC rtc = new GoldfishRTC(SystemTimeRealTimeCounter.get());
-
-		final GlobalVMContext context = new GlobalVMContext(board);
-		final BuiltinDevices builtinDevices;
+		final UART16550A uart = new UART16550A();
 
 		// grab minux images
 		final Images images = getImages();
 
-		// mount bootfs for first block device (vda)
-		//   can we add this to context?
+		/// MINUX BLOCK DEVICES
+		// BootFS block device.
 		final BlockDevice bootfs = ByteBufferBlockDevice.createFromStream(images.bootfs(), true);
 		final VirtIOBlockDevice vda = new VirtIOBlockDevice(board.getMemoryMap(), bootfs);
-		vda.getInterrupt().set(0x1, board.getInterruptController());
+		vda.getInterrupt().set(0x5, board.getInterruptController());
 		board.addDevice(vda);
 
-		// builtin device initialization. adds rootfs
-		builtinDevices = new BuiltinDevices(context);
+		// RootFS block device.
+		final BlockDevice rootfs = ByteBufferBlockDevice.createFromStream(images.rootfs(), true);
+		final VirtIOBlockDevice vdb = new VirtIOBlockDevice(board.getMemoryMap(), rootfs);
+		vdb.getInterrupt().set(0x6, board.getInterruptController());
+		board.addDevice(vdb);
 
-		// add a third device (vdc), from an image file.
+		// Add a third device (vdc), from an image file.
 		final BlockDevice vdc_fs = ByteBufferBlockDevice.createFromFile(GetImageFile(), false);
 		final VirtIOBlockDevice vdc = new VirtIOBlockDevice(board.getMemoryMap(), vdc_fs);
-		vdc.getInterrupt().set(0x3, board.getInterruptController());
+		vdc.getInterrupt().set(0x7, board.getInterruptController());
 		board.addDevice(vdc);
 
-		// device adapters
-		final RPCDeviceBusAdapter rpcAdapter = new RPCDeviceBusAdapter(builtinDevices.rpcSerialDevice);
-		final VMDeviceBusAdapter vmAdapter;
-		vmAdapter = new VMDeviceBusAdapter(context);
 
 		// terminal signals
 		SignalHandler handler = new SignalHandler () {
 			// ^C
 			public void handle(Signal sig) {
-				builtinDevices.uart.putByte((byte) 0x03);
+				uart.putByte((byte) 0x03);
 			}
 		};
 
 		Signal.handle(new Signal("INT"), handler);
 
 
-		builtinDevices.uart.getInterrupt().set(0xA, board.getInterruptController());
+
+		// RPC bus.
+		final VirtIOConsoleDevice rpcSerialDevice = new VirtIOConsoleDevice(board.getMemoryMap());
+		final RPCDeviceBusAdapter rpcAdapter = new RPCDeviceBusAdapter(rpcSerialDevice);
+		rpcSerialDevice.getInterrupt().set(0x3, board.getInterruptController());
+		board.addDevice(rpcSerialDevice);
+
+
+		uart.getInterrupt().set(0xA, board.getInterruptController());
 		rtc.getInterrupt().set(0xB, board.getInterruptController());
 
 
 		board.addDevice(0x80000000L, memory);
-		board.addDevice(builtinDevices.uart);
+		board.addDevice(uart);
 		board.addDevice(rtc);
 
 		board.getCpu().setFrequency(VM_CPU_FREQUENCY);
 		board.setBootArguments("root=/dev/vda rw");
-		board.setStandardOutputDevice(builtinDevices.uart);
+		board.setStandardOutputDevice(uart);
 
 		board.reset();
 
@@ -124,7 +130,6 @@ public final class Main {
 		board.initialize();
 
 		// Mount adapter devices.
-		vmAdapter.mountDevices();
 		rpcAdapter.mountDevices();
 
 		board.setRunning(true);
@@ -143,19 +148,24 @@ public final class Main {
 			while (board.isRunning()) {
 				final long stepStart = System.currentTimeMillis();
 
+				// Is this required?
+				// Need to re-figure out the RPC Adapter.
+				rpcAdapter.tick();
+
 				remaining += cyclesPerSecond;
 				while (remaining > 0) {
 					board.step(cyclesPerStep);
 					rpcAdapter.step(cyclesPerStep);
+
 					remaining -= cyclesPerStep;
 
 					int value;
-					while ((value = builtinDevices.uart.read()) != -1) {
+					while ((value = uart.read()) != -1) {
 						System.out.print((char) value);
 					}
 
-					while (br.ready() && builtinDevices.uart.canPutByte()) {
-						builtinDevices.uart.putByte((byte) br.read());
+					while (br.ready() && uart.canPutByte()) {
+						uart.putByte((byte) br.read());
 					}
 				}
 
@@ -176,7 +186,6 @@ public final class Main {
 			}
 
 		// UnMount adapter devices.
-		vmAdapter.unmountDevices();
 		rpcAdapter.unmountDevices();
 		}
 	}

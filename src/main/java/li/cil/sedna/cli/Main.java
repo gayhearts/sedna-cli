@@ -139,6 +139,7 @@ public final class Main {
 		}
 
 		final int cyclesPerSecond = board.getCpu().getFrequency();
+		final int cyclesPerMillis = (cyclesPerSecond / 1_000);
 		final int cyclesPerStep = 1_000;
 
 		try (final InputStreamReader isr = new InputStreamReader(System.in)) {
@@ -146,13 +147,13 @@ public final class Main {
 
 			int remaining = 0;
 			while (board.isRunning()) {
-				final long stepStart = System.currentTimeMillis();
+				final long step_end = System.currentTimeMillis() + 1;
 
 				// Is this required?
 				// Need to re-figure out the RPC Adapter.
 				rpcAdapter.tick();
 
-				remaining += cyclesPerSecond;
+				remaining += cyclesPerMillis;
 				while (remaining > 0) {
 					board.step(cyclesPerStep);
 					rpcAdapter.step(cyclesPerStep);
@@ -176,12 +177,9 @@ public final class Main {
 					board.initialize();
 				}
 
-				final long stepDuration = System.currentTimeMillis() - stepStart;
-				// minimum ~1/60th second per loop
-				final long sleep = 17 - stepDuration;
-				if (sleep > 0) {
+				while (System.currentTimeMillis() < step_end) {
 					//noinspection BusyWait
-					Thread.sleep(sleep);
+					Thread.sleep(0, 25);
 				}
 			}
 

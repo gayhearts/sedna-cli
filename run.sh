@@ -92,7 +92,7 @@ else
 
 	## Now actually run Sedna.
 	# term settings
-	stty -echo
+	stty -echo raw
 	stty -icanon min 1
 
 	./bin/sedna-cli

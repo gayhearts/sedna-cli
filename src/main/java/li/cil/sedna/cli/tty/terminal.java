@@ -47,6 +47,14 @@ public class terminal {
       this.echo = !value;
    }
 
+   public void Load() {
+      this.tty.Load();
+   }
+   
+   public void Store() {
+      this.tty.Store();
+   }
+   
    public String Dump() {
       return this.tty.attributes;
    }

@@ -12,7 +12,7 @@ public class stty {
    
    public stty() {
       try {
-	 this.attributes_default = this.exec("-g");
+	 this.attributes_default = this.exec_private("-g");
 	 this.attributes         = this.attributes_default;
 	 this.attributes_store   = this.attributes_default;
 	 this.initialized        = true;
@@ -22,8 +22,7 @@ public class stty {
    }
    
    protected void Load() {
-      this.attributes = this.attributes_store;
-      this.exec(this.attributes);
+      this.exec(this.attributes_store);
    }
    
    protected void Store() {
@@ -31,11 +30,10 @@ public class stty {
    }
    
    public void LoadDefault() {
-      this.attributes = this.attributes_default;
-      this.exec(this.attributes);
+      this.exec(this.attributes_default);
    }
    
-   protected String exec(String arg) {
+   private String exec_private(String arg) {
       StringBuilder printout = new StringBuilder();
       
       String[] cmd;
@@ -63,9 +61,16 @@ public class stty {
       
       return null;
    }
+
+   protected String exec(String arg) {
+      String return_value = this.exec_private(arg);
+      this.attributes = this.exec_private("-g");
+      
+      return return_value;
+   }
    
    public void Close() {
-      this.exec(this.attributes_default);
+      this.exec_private(this.attributes_default);
       this.attributes_default = null;
       this.attributes         = null;
       this.attributes_store   = null;

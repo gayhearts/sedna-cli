@@ -47,6 +47,8 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
+import java.nio.*;
+
 public final class Main {
 	public static int VM_MEMORY_MEGABYTES = 32;
 	public static int VM_MEMORY_BYTES = (VM_MEMORY_MEGABYTES * 1024 * 1024);
@@ -154,10 +156,15 @@ public final class Main {
 
 		final int cyclesPerSecond = board.getCpu().getFrequency();
 		final int cyclesPerMillis = (cyclesPerSecond / 1_000);
-		final int cyclesPerStep = 1_000;
+		final int cyclesPerStep   = 1_000;
+
+        final int stdin_buffer_length = 1024;
 
 			int remaining = 0;
 			while (board.isRunning()) {
+				ByteBuffer stdin_buffer      = ByteBuffer.allocate(stdin_buffer_length);
+				ByteBuffer stdin_buffer_swap = ByteBuffer.allocate(stdin_buffer_length);
+
 				final long step_end = System.currentTimeMillis() + 1;
 
 				// Is this required?
@@ -176,10 +183,28 @@ public final class Main {
 						System.out.print((char) value);
 					}
 
-					while (term.stdin.ready() && uart.canPutByte()) {
-						uart.putByte((byte) term.stdin.read());
-					}
-				}
+					while (term.stdin.ready() && stdin_buffer.hasRemaining()) {
+                        int input = term.stdin.read();
+
+                        // Push to buffer.
+                        stdin_buffer.put((byte) input);
+                    }
+
+                    for (int I=0, limit=stdin_buffer.position(); I <= limit; I++) {
+                        if (uart.canPutByte() && I != limit) {
+                            // Read stdin_buffer[I] into UART.
+                            uart.putByte(stdin_buffer.get(I));
+                        } else {
+                            // If UART isn't ready or finished, remove any utilized
+                            // bytes from buffer beginning.
+                            stdin_buffer.position(I);
+                            stdin_buffer_swap = stdin_buffer.slice();
+                            stdin_buffer      = stdin_buffer_swap.slice();
+
+                            break;
+                        }
+                    }
+                }
 
 				if (board.isRestarting()) {
 					loadProgramFile(memory, images.firmware());

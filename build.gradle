@@ -3,19 +3,32 @@ plugins {
     id 'maven-publish'
     id 'application'
 
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-    id "com.matthewprenger.cursegradle" version "1.4.0"
-    id 'org.spongepowered.mixin' version '0.7.+'
-    id "com.modrinth.minotaur" version "2.+"
+    id 'net.minecraftforge.gradle' version '[7.0.2,8.0)'
+}
+
+minecraft {
+    mappings channel: "official", version: "1.20.1"
+
+    runs {
+        configureEach {
+            property "forge.logging.markers", "REGISTRIES"
+            property "forge.logging.console.level", "debug"
+
+            mods {
+                oc2 {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
 }
 
 def getGitRef() {
     try {
-        final def stdout = new ByteArrayOutputStream()
-        exec {
-            commandLine 'git', 'rev-parse', '--short', 'HEAD'
-            standardOutput = stdout
-        }
+        final def stdout = providers.exec {
+          commandLine("git", "rev-parse", "--short", "HEAD")
+        }.standardOutput.asText.get()
+
         return stdout.toString().trim()
     } catch (final Throwable ignored) {
         return 'unknown'
@@ -34,11 +47,27 @@ version = "${semver}+${build_number}"
 group = 'li.cil.sedna'
 
 java.toolchain {
-    languageVersion = JavaLanguageVersion.of(17)
+    languageVersion = JavaLanguageVersion.of(21)
     //vendor = JvmVendorSpec.ADOPTOPENJDK
 }
 
 repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Sponge'
+                url = 'https://repo.spongepowered.org/repository/maven-public'
+            }
+        }
+        filter {
+            includeGroupAndSubgroups('org.spongepowered')
+        }
+    }
+    mavenLocal()
+
 	maven { url "https://www.cursemaven.com" }
 	mavenCentral()
     ["North-Western-Development/sedna", "North-Western-Development/minux", "fnuecke/ceres"].forEach(repo -> {
@@ -57,7 +86,7 @@ def tryProject(final projectName, final libraryName) {
 }
 
 dependencies {
-	minecraft "net.minecraftforge:forge:1.20.1-47.4.10"
+	implementation minecraft.dependency("net.minecraftforge:forge:1.20.1-47.4.10")
 	implementation 'com.google.guava:guava:16+'
     implementation 'commons-io:commons-io:2.11.0'
     implementation 'it.unimi.dsi:fastutil:8.5.8'
@@ -94,7 +123,7 @@ publishing {
 }
 
 application {
-    mainClassName = 'li.cil.sedna.cli.Main'
+    mainClass = 'li.cil.sedna.cli.Main'
 }
 
 run {
@@ -105,26 +134,4 @@ run {
 test {
     useJUnitPlatform()
 }
-
-
-minecraft {
-    mappings channel: "official", version: "1.20.1"
-
-    accessTransformer = file("src/main/resources/META-INF/accesstransformer.cfg")
-
-    runs {
-        configureEach {
-            property "forge.logging.markers", "REGISTRIES"
-            property "forge.logging.console.level", "debug"
-
-            mods {
-                oc2 {
-                    source sourceSets.main
-                }
-            }
-        }
-
-    }
-}
-
 

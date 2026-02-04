@@ -1,6 +1,7 @@
 package li.cil.sedna.cli;
 
 import li.cil.sedna.cli.tty.*;
+import li.cil.sedna.cli.MetaShell;
 
 import li.cil.sedna.Sedna;
 import li.cil.sedna.api.Sizes;
@@ -186,8 +187,18 @@ public final class Main {
 					while (term.stdin.ready() && stdin_buffer.hasRemaining()) {
                         int input = term.stdin.read();
 
+                        // Ctrl+a
+                        if (input == 0x01) {
+                            MetaShell.HandleEscape(term, board);
+                        }
+
                         // Push to buffer.
                         stdin_buffer.put((byte) input);
+                    }
+
+                    // Check if MetaShell stopped board.
+                    if (board.isRunning() == false) {
+                        break;
                     }
 
                     for (int I=0, limit=stdin_buffer.position(); I <= limit; I++) {

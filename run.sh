@@ -25,7 +25,6 @@ IsTrapped() {
 export JAVA_OPTS="-Xms4096M -Xmx6144M"
 
 ## store parent terminal info
-PARENT_TTY_SETTINGS="$(stty -g)"
 PARENT_RUNNING_DIR="$(pwd)"
 
 ## Get script/git directory.
@@ -51,10 +50,7 @@ fi
 
 ## Check parent data is there.
 ##   if not, we can't safely return from vm.
-if (test -z "$PARENT_TTY_SETTINGS"); then
-	echo "NO TTY SETTINGS FOUND."
-	exit 3
-elif (test -z "$PARENT_RUNNING_DIR"); then
+if (test -z "$PARENT_RUNNING_DIR"); then
 	echo "NO PARENT TERMINAL RUNNING DIRECTORY FOUND."
 	exit 4
 else
@@ -92,12 +88,8 @@ else
 
 	## Now actually run Sedna.
 	# term settings
-	stty -echo raw
-	stty -icanon min 1
-
 	./bin/sedna-cli
 
 	## Restore terminal settings
-	stty "$PARENT_TTY_SETTINGS"
 	cd "$PARENT_RUNNING_DIR"
 fi

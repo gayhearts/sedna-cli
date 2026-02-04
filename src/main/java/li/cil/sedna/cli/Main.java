@@ -1,5 +1,7 @@
 package li.cil.sedna.cli;
 
+import li.cil.sedna.cli.tty.*;
+
 import li.cil.sedna.Sedna;
 import li.cil.sedna.api.Sizes;
 import li.cil.sedna.api.device.BlockDevice;
@@ -51,6 +53,8 @@ public final class Main {
 
 	public static int VM_CPU_FREQUENCY = 25_000_000;
 
+        public static terminal term;
+   
 	public static void main(final String[] args) throws Exception {
 		Sedna.initialize();
 
@@ -58,10 +62,20 @@ public final class Main {
 		final boolean enableGdbStub = argList.contains("-s");
 		final boolean waitForGdb = argList.contains("-S");
 
-		runSimple(enableGdbStub, waitForGdb);
+	        term = new terminal();
+	   
+	        if( term == null ){
+		   return;
+		}
+	   
+	        term.SetRaw(true);
+	   
+		RunSedna(enableGdbStub, waitForGdb);
+	   
+	        term.Close();
 	}
 
-	private static void runSimple(final boolean enableGdbStub, final boolean waitForGdb) throws Exception {
+	private static void RunSedna(final boolean enableGdbStub, final boolean waitForGdb) throws Exception {
 		final R5Board board = new R5Board();
 		final PhysicalMemory memory = Memory.create(VM_MEMORY_BYTES);
 		final GoldfishRTC rtc = new GoldfishRTC(SystemTimeRealTimeCounter.get());
@@ -142,9 +156,6 @@ public final class Main {
 		final int cyclesPerMillis = (cyclesPerSecond / 1_000);
 		final int cyclesPerStep = 1_000;
 
-		try (final InputStreamReader isr = new InputStreamReader(System.in)) {
-			final BufferedReader br = new BufferedReader(isr);
-
 			int remaining = 0;
 			while (board.isRunning()) {
 				final long step_end = System.currentTimeMillis() + 1;
@@ -165,8 +176,8 @@ public final class Main {
 						System.out.print((char) value);
 					}
 
-					while (br.ready() && uart.canPutByte()) {
-						uart.putByte((byte) br.read());
+					while (term.stdin.ready() && uart.canPutByte()) {
+						uart.putByte((byte) term.stdin.read());
 					}
 				}
 
@@ -185,7 +196,7 @@ public final class Main {
 
 		// UnMount adapter devices.
 		rpcAdapter.unmountDevices();
-		}
+		
 	}
 
 	private static void loadProgramFile(final PhysicalMemory memory, final InputStream stream) throws Exception {

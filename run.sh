@@ -35,8 +35,8 @@ SELF_NAME="$(basename "$SELF_PATH")"
 
 ## Get project info.
 IFS= command eval 'GRADLE_PROPERTIES=$("$SELF_DIR/gradlew" --quiet properties)'
-GRADLE_VERSION="$(echo "$GRADLE_PROPERTIES" | sed -n "s/version: //p")"
-GRADLE_NAME="$(echo "$GRADLE_PROPERTIES" | sed -n "s/name: //p")"
+GRADLE_VERSION="$(echo "$GRADLE_PROPERTIES" | sed -n "s/^version: //p")"
+GRADLE_NAME="$(echo "$GRADLE_PROPERTIES" | sed -n "s/^name: //p")"
 
 if (test -z "$GRADLE_VERSION"); then
 	echo "Unable to retrieve project version."

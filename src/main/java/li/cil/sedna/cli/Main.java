@@ -141,7 +141,7 @@ public final class Main {
 		board.reset();
 
 		// Add device firmware.
-		loadProgramFile(memory, images.firmware());
+		loadProgramFile(memory, OpenSBI.GetLegacyFirmwareStream());
 		loadProgramFile(memory, images.kernel(), 0x200000);
 
 		board.initialize();
@@ -218,7 +218,7 @@ public final class Main {
                 }
 
 				if (board.isRestarting()) {
-					loadProgramFile(memory, images.firmware());
+					loadProgramFile(memory, OpenSBI.GetLegacyFirmwareStream());
 					loadProgramFile(memory, images.kernel(), 0x200000);
 
 					board.initialize();
